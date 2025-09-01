@@ -139,7 +139,6 @@ def change_user_data_handler(db_manager: DatabaseManager, platform: str, user_id
 
 
 def generate_verify_code() -> str:
-    # 不包含64和89的随机数
     while True:
         verify_code = random.randint(10000, 99999)
         verify_code_str = str(verify_code)
