@@ -139,12 +139,13 @@ def change_user_data_handler(db_manager: DatabaseManager, platform: str, user_id
 
 
 def generate_verify_code() -> str:
-    """Generate verification code (avoiding certain numbers)."""
+    # 不包含64和89的随机数
     while True:
         verify_code = random.randint(10000, 99999)
+        verify_code_str = str(verify_code)
         banned = ['64', '89', '250', '1226', '817']
-        if str(verify_code) not in banned:
-            return str(verify_code)
+        if not any(b in verify_code_str for b in banned):
+            return verify_code_str
 
 
 def bind_player_request_handler(db_manager: DatabaseManager, platform: str, user_id: str, direct_unbind: bool = False) -> Dict[str, Any]:

@@ -83,7 +83,7 @@ def run_from_config(
     
     if not os.path.exists(config_file):
         console.print(f"❌ Configuration file not found: {config_file}", style="red")
-        console.print("💡 Use 'tsugu-uds config' to generate a configuration file first, or use 'tsugu-uds serve' to start the server without a config")
+        console.print("💡 Use 'tsugu-uds config new' to generate a configuration file first, or use 'tsugu-uds serve' to start the server without a config")
         return
     
     try:
