@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tsugu-uds"
-version = "1.0.3"
+version = "1.0.4"
 description = "Tsugu User Data Server CLI Tool"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -29,6 +29,9 @@ dependencies = [
     "loguru>=0.7.0",
     "requests>=2.30.0",
 ]
+
+[project.scripts]
+tsugu-uds = "tsugu_uds.cli:app"
 
 [project.optional-dependencies]
 dev = [
