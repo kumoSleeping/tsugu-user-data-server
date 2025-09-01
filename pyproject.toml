@@ -39,18 +39,12 @@ dev = [
     "mypy>=1.0.0",
 ]
 
-[project.scripts]
-tsugu-uds = "tsugu_uds.cli:app"
-
 [project.urls]
-Homepage = "https://github.com/yourusername/tsugu-uds"
-Repository = "https://github.com/yourusername/tsugu-uds.git"
+Homepage = "https://github.com/kumoSleeping/tsugu-user-data-server"
+Repository = "https://github.com/kumoSleeping/tsugu-user-data-server.git"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.setuptools.package-dir]
-"" = "src"
 
 [tool.black]
 line-length = 88
