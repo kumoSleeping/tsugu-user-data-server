@@ -35,39 +35,69 @@ def main(
 def serve(
     host: str = typer.Option("127.0.0.1", "--host", "-h", help="Host to bind to"),
     port: int = typer.Option(3001, "--port", "-p", help="Port to bind to"),
-    debug: bool = typer.Option(False, "--debug", "-d", help="Enable debug mode (also enables development mode)"),
+    log_level: str = typer.Option("info", "--log-level", "-l", help="Logging level (debug, info, warning, error)"),
+    workers: int = typer.Option(1, "--workers", "-w", help="Number of worker processes"),
     direct_unbind: bool = typer.Option(False, "--direct-unbind", help="Enable direct unbind mode (skip Bestdori API verification)"),
     proxy: str = typer.Option("", "--proxy", help="Proxy URL for Bestdori API requests"),
 ):
-    """Start the Guga server with Quart."""
-    # When debug is enabled, also enable dev mode
-    dev_mode = debug
-    
-    # Ensure data directory exists
+    """Start the Tsugu User Data Server."""
+    import subprocess
+    import sys
     import os
+
+    # Validate log level
+    if log_level not in ["debug", "info", "warning", "error"]:
+        console.print(f"[red]❌ Invalid log level: {log_level}[/red]")
+        console.print("Supported levels: debug, info, warning, error")
+        raise typer.Exit(1)
+
+    # When debug log level is enabled, also enable dev mode for logging
+    dev_mode = log_level == "debug"
+
+    # Ensure data directory exists
     data_dir = "./data"
     if not os.path.exists(data_dir):
         os.makedirs(data_dir)
         console.print(f"📁 Created data directory: {data_dir}", style="blue")
-    
+
     startup_info = f"""[bold green]🚀 Starting Tsugu User Data Server[/bold green]
 
 • Host: [cyan]{host}[/cyan]
 • Port: [cyan]{port}[/cyan]
-• Debug: [cyan]{debug}[/cyan]
+• Log Level: [cyan]{log_level}[/cyan]
+• Workers: [cyan]{workers}[/cyan]
 • Direct Unbind: [cyan]{direct_unbind}[/cyan]
 • Proxy: [cyan]{proxy if proxy else 'None'}[/cyan]
 
 [bold yellow]Press Ctrl+C to stop[/bold yellow]"""
-    
+
     panel = Panel(startup_info, title="Tsugu User Data Server", border_style="blue")
     console.print(panel)
-    
+
     try:
-        quart_app = create_app("./data/user_v3.db", dev_mode=dev_mode, direct_unbind=direct_unbind, proxy=proxy)
-        quart_app.run(host=host, port=port, debug=debug)
+        # Use uvicorn for ASGI
+        # Set environment variable to pass log level to the app
+        os.environ['TSUGU_UDS_LOG_LEVEL'] = log_level
+        
+        cmd = [
+            sys.executable, "-m", "uvicorn",
+            "tsugu_uds.server:create_app",
+            "--factory",
+            "--host", host,
+            "--port", str(port),
+            "--workers", str(workers),
+            "--log-level", "error",  # Use error for uvicorn to minimize interference
+            "--no-access-log"  # Disable access log to reduce noise
+        ]
+        if log_level == "debug":
+            cmd.append("--reload")
+        subprocess.run(cmd, check=True)
+
     except KeyboardInterrupt:
         console.print("\n[yellow]Server stopped[/yellow]")
+    except subprocess.CalledProcessError as e:
+        console.print(f"\n[red]Server error: {e}[/red]")
+        raise typer.Exit(1)
     except Exception as e:
         console.print(f"\n[red]Error: {e}[/red]")
         raise typer.Exit(1)
@@ -80,66 +110,93 @@ def run_from_config(
     """Start the Tsugu User Data Server using a YAML configuration file."""
     import yaml
     import os
-    
+    import subprocess
+    import sys
+
     if not os.path.exists(config_file):
         console.print(f"❌ Configuration file not found: {config_file}", style="red")
         console.print("💡 Use 'tsugu-uds config new' to generate a configuration file first, or use 'tsugu-uds serve' to start the server without a config")
         return
-    
+
     try:
         with open(config_file, 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
-        
+
         # Extract configuration
         server_config = config.get("server", {})
         db_config = config.get("database", {})
-        
+
         host = server_config.get("host", "127.0.0.1")
         port = server_config.get("port", 3001)
-        debug = server_config.get("debug", False)
+        log_level = server_config.get("log_level", "info")
         direct_unbind = server_config.get("direct_unbind", False)
         proxy = server_config.get("proxy", "")
         database_path = db_config.get("path", "./data/user_v3.db")
-        
+        workers = server_config.get("workers", 1)
+
         # Ensure data directory exists
         data_dir = os.path.dirname(database_path)
         if data_dir and not os.path.exists(data_dir):
             os.makedirs(data_dir)
             console.print(f"📁 Created data directory: {data_dir}", style="blue")
-        
-        # When debug is enabled, also enable dev mode
-        dev_mode = debug
-        
+
+        # Validate log level
+        if log_level not in ["debug", "info", "warning", "error"]:
+            console.print(f"[red]❌ Invalid log level: {log_level}[/red]")
+            console.print("Supported levels: debug, info, warning, error")
+            raise typer.Exit(1)
+
+        # When debug log level is enabled, also enable dev mode for logging
+        dev_mode = log_level == "debug"
+
         startup_info = f"""[bold green]🚀 Starting Tsugu User Data Server (from config)[/bold green]
 
 • Config: [cyan]{config_file}[/cyan]
 • Host: [cyan]{host}[/cyan]
 • Port: [cyan]{port}[/cyan]
-• Debug: [cyan]{debug}[/cyan]
+• Log Level: [cyan]{log_level}[/cyan]
+• Workers: [cyan]{workers}[/cyan]
 • Direct Unbind: [cyan]{direct_unbind}[/cyan]
 • Proxy: [cyan]{proxy if proxy else 'None'}[/cyan]
 • Database: [cyan]{database_path}[/cyan]
 
 [bold yellow]Press Ctrl+C to stop[/bold yellow]"""
-        
+
         panel = Panel(startup_info, title="Tsugu User Data Server", border_style="blue")
         console.print(panel)
-        
+
         try:
-            quart_app = create_app(database_path, dev_mode=dev_mode, direct_unbind=direct_unbind, proxy=proxy)
-            quart_app.run(host=host, port=port, debug=debug)
+            # Use uvicorn for ASGI
+            # Set environment variable to pass log level to the app
+            os.environ['TSUGU_UDS_LOG_LEVEL'] = log_level
+            
+            cmd = [
+                sys.executable, "-m", "uvicorn",
+                "tsugu_uds.server:create_app",
+                "--factory",
+                "--host", host,
+                "--port", str(port),
+                "--workers", str(workers),
+                "--log-level", "error",  # Use error for uvicorn to minimize interference
+                "--no-access-log"  # Disable access log to reduce noise
+            ]
+            if log_level == "debug":
+                cmd.append("--reload")
+            subprocess.run(cmd, check=True)
+
         except KeyboardInterrupt:
             console.print("\n[yellow]Server stopped[/yellow]")
+        except subprocess.CalledProcessError as e:
+            console.print(f"\n[red]Server error: {e}[/red]")
+            raise typer.Exit(1)
         except Exception as e:
             console.print(f"\n[red]Error: {e}[/red]")
             raise typer.Exit(1)
-            
+
     except yaml.YAMLError as e:
         console.print(f"❌ Failed to parse configuration file: {e}", style="red")
     except Exception as e:
         console.print(f"❌ Error loading configuration: {e}", style="red")
-
-
 # Config command group
 config_app = typer.Typer(help="Configuration management commands")
 app.add_typer(config_app, name="config")
@@ -148,23 +205,20 @@ app.add_typer(config_app, name="config")
 @config_app.command("new")
 def config_new(
     output: str = typer.Option("tsugu-uds-config.yml", "--output", "-o", help="Output configuration file path"),
-    host: str = typer.Option("127.0.0.1", help="Server host"),
-    port: int = typer.Option(3001, help="Server port"),
-    debug: bool = typer.Option(False, help="Enable debug mode"),
-    direct_unbind: bool = typer.Option(False, help="Enable direct unbind mode"),
-    proxy: str = typer.Option("", help="Proxy URL"),
 ):
-    """Generate a new YAML configuration file."""
+    """Generate a new YAML configuration file with default settings."""
     import yaml
     import os
     
+    # Default configuration
     config = {
         "server": {
-            "host": host,
-            "port": port,
-            "debug": debug,
-            "direct_unbind": direct_unbind,
-            "proxy": proxy if proxy else None,
+            "host": "127.0.0.1",
+            "port": 3001,
+            "debug": False,
+            "workers": 1,
+            "direct_unbind": False,
+            "proxy": None,
         }
     }
     
@@ -181,19 +235,22 @@ def config_new(
 
 server:
   # Server host address (default: 127.0.0.1)
-  host: {host}
+  host: 127.0.0.1
   
   # Server port number (default: 3001)
-  port: {port}
+  port: 3001
   
   # Enable debug mode (also enables development mode)
-  debug: {str(debug).lower()}
+  log_level: info
+  
+  # Number of worker processes (only used for ASGI servers)
+  workers: 1
   
   # Enable direct unbind mode (skip Bestdori API verification for player unbinding)
-  direct_unbind: {str(direct_unbind).lower()}
+  direct_unbind: false
   
   # Proxy URL for Bestdori API requests (optional)
-  proxy: {proxy if proxy else 'null'}
+  proxy: null
 """
         
         with open(output, 'w') as f:

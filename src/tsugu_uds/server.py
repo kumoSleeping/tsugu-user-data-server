@@ -1,10 +1,8 @@
-"""Modern Quart server with the original API."""
+"""Modern ASGI server with Quart framework and the original API."""
 
 from quart import Quart, request, jsonify
 from loguru import logger
-import asyncio
 import json
-import time
 
 from .database import DatabaseManager
 from .handlers.user_handlers import (
@@ -15,19 +13,44 @@ from .handlers.user_handlers import (
 )
 
 
-def create_app(db_path: str = "./data/user_v3.db", dev_mode: bool = False, direct_unbind: bool = False, proxy: str = ""):
+def create_app(db_path: str = "./data/user_v3.db", log_level: str = "info", direct_unbind: bool = False, proxy: str = ""):
     """Create and configure the Quart application."""
+    import os
+    
+    # Get log level from environment variable (set by CLI) or use parameter
+    actual_log_level = os.environ.get('TSUGU_UDS_LOG_LEVEL', log_level)
+    
     app = Quart(__name__)
     
-    # Configure logging based on mode
-    if dev_mode:
-        logger.remove()  # Remove default handler
-        logger.add("logs/tsugu_uds_dev.log", rotation="1 MB", retention="3 days", level="DEBUG", 
+    # Configure logging based on log level
+    logger.remove()  # Remove default handler
+    
+    # Set log level
+    level = actual_log_level.upper()
+    if level not in ["DEBUG", "INFO", "WARNING", "ERROR"]:
+        level = "INFO"
+    
+    # Add file handler
+    if actual_log_level == "debug":
+        logger.add("logs/tsugu_uds_dev.log", rotation="1 MB", retention="3 days", level=level, 
                   format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}")
-        logger.add(lambda msg: print(msg, end=""), level="INFO")  # Console output
-        logger.info("🔧 Development mode enabled")
     else:
-        logger.add("logs/tsugu_uds.log", rotation="1 MB", retention="10 days", level="INFO")
+        logger.add("logs/tsugu_uds.log", rotation="1 MB", retention="10 days", level=level,
+                  format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}")
+    
+    # Add colorful console output - always show INFO and above, DEBUG only in debug mode
+    import sys
+    if actual_log_level == "debug":
+        logger.add(sys.stderr, level="DEBUG", colorize=True, 
+                  format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>")
+    else:
+        logger.add(sys.stderr, level="INFO", colorize=True,
+                  format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>")
+    
+    logger.info(f"🔧 Log level set to: {actual_log_level}")
+    
+    if actual_log_level == "debug":
+        logger.info("🔧 Debug mode enabled")
     
     # Initialize database
     db_manager = DatabaseManager(db_path)
@@ -43,7 +66,7 @@ def create_app(db_path: str = "./data/user_v3.db", dev_mode: bool = False, direc
             "status": "healthy",
             "service": "Tsugu User Data Server API",
             "version": "1.0.0",
-            "dev_mode": dev_mode
+            "log_level": actual_log_level
         }
         
         logger.debug(f"Health check response: {response_data}")

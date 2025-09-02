@@ -18,11 +18,38 @@ tsugu-uds serve
 tsugu-uds --help
 tsugu-uds serve --help
 ```
+
+### 启动服务器
+使用Uvicorn ASGI服务器启动：
+
+```bash
+# 基本启动
+tsugu-uds serve
+
+# 指定日志级别
+tsugu-uds serve --log-level debug
+
+# 指定工作进程数
+tsugu-uds serve --workers 4
+
+# 调试模式启动
+tsugu-uds serve --debug
+```
+
 ### 配置文件启动
 ```bash
+# 生成默认配置文件
 tsugu-uds config new
+
+# 使用配置文件启动（完全按配置文件设置）
 tsugu-uds run
 ```
+
+配置文件包含所有设置选项，可以手动编辑。关键配置项：
+- `log_level`: 日志级别（`debug`, `info`, `warning`, `error`）
+- `workers`: Uvicorn的工作进程数
+
+
 ### 数据库管理
 ```bash
 tsugu-uds db --help
