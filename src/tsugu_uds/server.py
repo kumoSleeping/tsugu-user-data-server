@@ -65,7 +65,7 @@ def create_app(db_path: str = "./data/user_v3.db", log_level: str = "info", dire
         response_data = {
             "status": "healthy",
             "service": "Tsugu User Data Server API",
-            "version": "1.0.0",
+            "version": "1.0.8",
             "log_level": actual_log_level
         }
         
