@@ -9,6 +9,12 @@ from typing import Dict, Any, Optional
 from ..database import DatabaseManager, verify_code_cache
 
 
+def _get_logger():
+    """Get the configured logger instance."""
+    from loguru import logger
+    return logger
+
+
 class Config:
     def __init__(self):
         self._i_s = {0: "jp", 1: "en", 2: "tw", 3: "cn", 4: "kr"}
@@ -58,6 +64,8 @@ def get_bestdori_player(player_id: str, server: int, proxy: str = "") -> Optiona
 
 def get_user_data_handler(db_manager: DatabaseManager, platform: str, user_id: str) -> Dict[str, Any]:
     """Handle get user data request."""
+    logger = _get_logger()
+    logger.info(f"GET user data - platform: {platform}, user_id: {user_id}")
     try:
         user_data = db_manager.get_user_data(platform, user_id)
         
@@ -90,6 +98,8 @@ def get_user_data_handler(db_manager: DatabaseManager, platform: str, user_id: s
 
 def change_user_data_handler(db_manager: DatabaseManager, platform: str, user_id: str, update: Dict[str, Any]) -> Dict[str, Any]:
     """Handle change user data request."""
+    logger = _get_logger()
+    logger.info(f"UPDATE user data - platform: {platform}, user_id: {user_id}, fields: {list(update.keys())}")
     try:
         # Check if user exists
         user_data = db_manager.get_user_data(platform, user_id)
@@ -149,6 +159,8 @@ def generate_verify_code() -> str:
 
 def bind_player_request_handler(db_manager: DatabaseManager, platform: str, user_id: str, direct_unbind: bool = False) -> Dict[str, Any]:
     """Handle bind player request."""
+    logger = _get_logger()
+    logger.info(f"BIND player request - platform: {platform}, user_id: {user_id}, direct_unbind: {direct_unbind}")
     try:
         # Check if user exists
         user_data = db_manager.get_user_data(platform, user_id)
@@ -196,6 +208,8 @@ def bind_player_verification_handler(
     proxy: str = ""
 ) -> Dict[str, Any]:
     """Handle bind player verification."""
+    logger = _get_logger()
+    logger.info(f"BIND player verification - platform: {platform}, user_id: {user_id}, server: {server}, player_id: {player_id}, binding_action: {binding_action}, direct_unbind: {direct_unbind}")
     try:
         # Check if user exists
         user_data = db_manager.get_user_data(platform, user_id)
